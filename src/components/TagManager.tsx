@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import { usePosterStore } from '@/store/usePosterStore'
 import { PRESET_TAGS } from '@/types'
 import type { Tag } from '@/types'
+import TagComboSelector from '@/components/TagComboSelector'
 import {
   DndContext,
   closestCenter,
@@ -259,6 +260,8 @@ export default function TagManager() {
         报名要求标签
         <span className="text-xs text-text-muted font-normal ml-1">拖拽排序 · 点击文字可直接编辑</span>
       </h3>
+
+      <TagComboSelector />
 
       {tags.length > 0 && (
         <div className="mb-4 p-3 bg-bg-input rounded-lg border border-border-subtle">

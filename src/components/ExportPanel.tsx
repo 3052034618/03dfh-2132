@@ -103,11 +103,13 @@ function PrecheckModal({
 
 export default function ExportPanel() {
   const store = usePosterStore()
+  const selectedTone = store.tone
+  const selectedChannel = store.channel
+  const setSelectedTone = store.setTone
+  const setSelectedChannel = store.setChannel
   const [copied, setCopied] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [showTonePicker, setShowTonePicker] = useState(false)
-  const [selectedTone, setSelectedTone] = useState<CopyTone>('neutral')
-  const [selectedChannel, setSelectedChannel] = useState<CopyChannel>('group')
   const [showPrecheck, setShowPrecheck] = useState(false)
   const [showChannelPicker, setShowChannelPicker] = useState(false)
   const [copyPreviewOpen, setCopyPreviewOpen] = useState(true)
@@ -296,11 +298,11 @@ export default function ExportPanel() {
       </div>
 
       <div className="mb-3">
-        <button
+        <div
           onClick={() => setCopyPreviewOpen((o) => !o)}
-          className="w-full flex items-center justify-between px-3 py-2 bg-bg-input rounded-lg border border-border-subtle hover:border-text-muted transition-all"
+          className="w-full flex items-center justify-between px-3 py-2 bg-bg-input rounded-lg border border-border-subtle hover:border-text-muted transition-all cursor-pointer"
         >
-          <span className="text-xs text-text-secondary flex items-center gap-1.5">
+          <span className="text-xs text-text-secondary flex items-center gap-1.5 pointer-events-none">
             <FileText className="w-3.5 h-3.5" />
             文字版预览 · {COPY_TONES.find((t) => t.key === selectedTone)?.name} · {COPY_CHANNELS.find((c) => c.key === selectedChannel)?.name}
           </span>
@@ -315,9 +317,9 @@ export default function ExportPanel() {
               {copied ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
               {copied ? '已复制' : '复制'}
             </button>
-            <ChevronDown className={`w-3.5 h-3.5 text-text-muted transition-transform ${copyPreviewOpen ? 'rotate-180' : ''}`} />
+            <ChevronDown className={`w-3.5 h-3.5 text-text-muted transition-transform pointer-events-none ${copyPreviewOpen ? 'rotate-180' : ''}`} />
           </span>
-        </button>
+        </div>
         {copyPreviewOpen && (
           <div className="mt-2 p-3 bg-bg-input rounded-lg border border-border-subtle animate-fade-in-up relative">
             <pre className="text-[11px] text-text-secondary whitespace-pre-wrap font-mono leading-relaxed max-h-64 overflow-y-auto pr-4">

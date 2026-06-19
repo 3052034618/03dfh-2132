@@ -1,12 +1,30 @@
+import { useState, useEffect } from 'react'
 import TemplateSelector from '@/components/TemplateSelector'
 import PosterForm from '@/components/PosterForm'
 import TagManager from '@/components/TagManager'
 import SignupCode from '@/components/SignupCode'
 import ExportPanel from '@/components/ExportPanel'
 import DraftManager from '@/components/DraftManager'
-import { Skull } from 'lucide-react'
+import PlayerRoster from '@/components/PlayerRoster'
+import PublishPack from '@/components/PublishPack'
+import { Skull, X, RotateCcw } from 'lucide-react'
+import { usePosterStore } from '@/store/usePosterStore'
 
 export default function Home() {
+  const [toast, setToast] = useState<null | { type: 'session'; msg: string; action?: () => void }>(null)
+  const { __sessionRestored, clearSessionState, setVacancyCount } = usePosterStore()
+  const tone = usePosterStore((s) => s.tone)
+  const channel = usePosterStore((s) => s.channel)
+
+  useEffect(() => {
+    if (__sessionRestored) {
+      setToast({
+        type: 'session',
+        msg: '已自动恢复上次未保存的编辑内容',
+      })
+    }
+  }, [__sessionRestored])
+
   return (
     <div className="min-h-screen">
       <header className="border-b border-border-subtle bg-bg-primary/80 backdrop-blur-sm sticky top-0 z-40">
@@ -23,6 +41,25 @@ export default function Home() {
         </div>
       </header>
 
+      {toast && (
+        <div className="fixed top-[57px] left-1/2 -translate-x-1/2 z-50 animate-[fadeInUp_0.3s_ease-out]">
+          <div className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-accent-gold/15 border border-accent-gold/40 backdrop-blur-sm shadow-xl shadow-black/40">
+            <RotateCcw className="w-4 h-4 text-accent-gold/80" />
+            <span className="text-xs text-accent-gold/95 font-medium">{toast.msg}</span>
+            <button
+              onClick={() => {
+                clearSessionState()
+                setToast(null)
+              }}
+              className="ml-1 p-1 text-text-muted hover:text-text-primary transition-colors"
+              title="关闭提示，且清除临时快照"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
       <main className="max-w-6xl mx-auto px-4 py-6">
         <div className="lg:grid lg:grid-cols-5 lg:gap-6">
           <div className="lg:col-span-3 space-y-0">
@@ -30,10 +67,12 @@ export default function Home() {
             <TemplateSelector />
             <PosterForm />
             <TagManager />
+            <PlayerRoster />
             <SignupCode />
           </div>
           <div className="lg:col-span-2 mt-4 lg:mt-0">
-            <div className="lg:sticky lg:top-16">
+            <div className="lg:sticky lg:top-16 space-y-0">
+              <PublishPack tone={tone} channel={channel} />
               <ExportPanel />
             </div>
           </div>

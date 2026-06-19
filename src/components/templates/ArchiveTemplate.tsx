@@ -76,7 +76,7 @@ export default function ArchiveTemplate({
           </div>
           <div className="flex items-center gap-2">
             <span className="text-gray-500 w-16">VACANCY</span>
-            <span className="text-red-400 font-bold">{v || '█'}</span>
+            <span className="text-red-400 font-bold">{v ? v + ' 名' : '█'}</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-gray-500 w-16">FEE</span>
