@@ -1,0 +1,145 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: "Noto Serif SC", serif;
+  line-height: 1.5;
+  font-weight: 400;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background-color: #0a0a0f;
+  color: #e8e8f0;
+  min-height: 100vh;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+}
+
+#root {
+  position: relative;
+  z-index: 1;
+}
+
+@layer components {
+  .editor-section {
+    @apply bg-bg-card border border-border-subtle rounded-xl p-5 mb-4;
+  }
+
+  .editor-label {
+    @apply block text-sm text-text-secondary mb-1.5 font-serif;
+  }
+
+  .editor-input {
+    @apply w-full bg-bg-input border border-border-subtle rounded-lg px-4 py-2.5 text-text-primary placeholder-text-muted focus:outline-none focus:border-accent-gold focus:ring-1 focus:ring-accent-gold/30 transition-all duration-200;
+  }
+
+  .glow-gold {
+    box-shadow: 0 0 20px rgba(212, 165, 116, 0.15), 0 0 40px rgba(212, 165, 116, 0.05);
+  }
+
+  .stamp-effect {
+    display: inline-block;
+    border: 3px solid currentColor;
+    padding: 4px 16px;
+    transform: rotate(-8deg);
+    opacity: 0.85;
+    letter-spacing: 4px;
+  }
+
+  .ticket-perforation {
+    background-image: radial-gradient(circle, #0a0a0f 6px, transparent 6px);
+    background-size: 20px 20px;
+    background-position: -10px 0;
+    height: 20px;
+  }
+
+  .parchment-texture {
+    background:
+      linear-gradient(135deg, rgba(245, 230, 200, 0.97) 0%, rgba(232, 212, 168, 0.97) 50%, rgba(196, 160, 96, 0.95) 100%);
+    position: relative;
+  }
+
+  .parchment-texture::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.08'/%3E%3C/svg%3E");
+    pointer-events: none;
+  }
+
+  .fingerprint-watermark {
+    position: absolute;
+    right: 20px;
+    bottom: 20px;
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: radial-gradient(ellipse at center, rgba(60,40,20,0.12) 0%, rgba(60,40,20,0.04) 60%, transparent 100%);
+  }
+
+  .archive-scanline {
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(255,255,255,0.015) 2px,
+      rgba(255,255,255,0.015) 4px
+    );
+    pointer-events: none;
+  }
+}
+
+.drag-overlay {
+  opacity: 0.9;
+  transform: scale(1.02);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  z-index: 50;
+}
+
+.tag-chip {
+  @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm cursor-grab select-none transition-all duration-200;
+}
+
+.tag-chip:active {
+  cursor: grabbing;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.4s ease-out forwards;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.shimmer-gold {
+  background: linear-gradient(90deg, transparent 0%, rgba(212,165,116,0.1) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: shimmer 3s infinite;
+}
