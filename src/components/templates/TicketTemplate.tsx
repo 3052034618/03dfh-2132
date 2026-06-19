@@ -1,4 +1,5 @@
 import type { Tag } from '@/types'
+import { formatVacancyCount } from '@/lib/utils'
 import { Clock, BookOpen, Crosshair, ShieldAlert, PenLine, Drama, Wifi, RefreshCw, Puzzle, Award, Tags } from 'lucide-react'
 
 const ICON_MAP: Record<string, React.ReactNode> = {
@@ -36,6 +37,7 @@ export default function TicketTemplate({
   tags,
   signupCode,
 }: Props) {
+  const v = formatVacancyCount(vacancyCount)
   return (
     <div
       className="w-[375px] min-h-[667px] bg-[#1a1610] relative overflow-hidden"
@@ -76,7 +78,7 @@ export default function TicketTemplate({
             </div>
             <div>
               <span className="text-[#a08060] text-[10px]">空余座位</span>
-              <div className="font-bold text-[#8a2020]">{vacancyCount || '?'} 人</div>
+              <div className="font-bold text-[#8a2020]">{v || '?'} 人</div>
             </div>
           </div>
 
@@ -112,7 +114,7 @@ export default function TicketTemplate({
           )}
 
           <div className="absolute bottom-2 left-0 right-0 text-center">
-            <span className="text-[7px] text-[#a08060]/40 tracking-[2px]">票价: {feeRange || '面议'} · 限乘{vacancyCount || '?'}人</span>
+            <span className="text-[7px] text-[#a08060]/40 tracking-[2px]">票价: {feeRange || '面议'} · 限乘{v || '?'}人</span>
           </div>
         </div>
 

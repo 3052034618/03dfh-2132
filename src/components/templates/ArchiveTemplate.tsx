@@ -1,4 +1,5 @@
 import type { Tag } from '@/types'
+import { formatVacancyCount } from '@/lib/utils'
 import { Clock, BookOpen, Crosshair, ShieldAlert, PenLine, Drama, Wifi, RefreshCw, Puzzle, Award, Tags } from 'lucide-react'
 
 const ICON_MAP: Record<string, React.ReactNode> = {
@@ -36,6 +37,7 @@ export default function ArchiveTemplate({
   tags,
   signupCode,
 }: Props) {
+  const v = formatVacancyCount(vacancyCount)
   return (
     <div
       className="w-[375px] min-h-[667px] bg-[#0d0d12] text-white font-mono relative overflow-hidden"
@@ -74,7 +76,7 @@ export default function ArchiveTemplate({
           </div>
           <div className="flex items-center gap-2">
             <span className="text-gray-500 w-16">VACANCY</span>
-            <span className="text-red-400 font-bold">{vacancyCount || '█'}</span>
+            <span className="text-red-400 font-bold">{v || '█'}</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-gray-500 w-16">FEE</span>

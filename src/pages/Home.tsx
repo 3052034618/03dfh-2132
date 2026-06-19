@@ -3,6 +3,7 @@ import PosterForm from '@/components/PosterForm'
 import TagManager from '@/components/TagManager'
 import SignupCode from '@/components/SignupCode'
 import ExportPanel from '@/components/ExportPanel'
+import DraftManager from '@/components/DraftManager'
 import { Skull } from 'lucide-react'
 
 export default function Home() {
@@ -25,6 +26,7 @@ export default function Home() {
       <main className="max-w-6xl mx-auto px-4 py-6">
         <div className="lg:grid lg:grid-cols-5 lg:gap-6">
           <div className="lg:col-span-3 space-y-0">
+            <DraftManager />
             <TemplateSelector />
             <PosterForm />
             <TagManager />
@@ -39,7 +41,7 @@ export default function Home() {
       </main>
 
       <footer className="border-t border-border-subtle py-4 text-center text-[10px] text-text-muted">
-        硬核推理车队招募海报生成器 · 纯前端工具 · 不收集任何数据
+        硬核推理车队招募海报生成器 · 纯前端工具 · 草稿保存在本地浏览器
       </footer>
     </div>
   )

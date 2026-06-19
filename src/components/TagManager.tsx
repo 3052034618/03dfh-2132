@@ -35,8 +35,10 @@ import {
   Puzzle,
   Award,
   Tags,
+  Wand2,
+  Info,
 } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, splitRequirementsToTags } from '@/lib/utils'
 
 const ICON_MAP: Record<string, React.ReactNode> = {
   Clock: <Clock className="w-3.5 h-3.5" />,
@@ -49,6 +51,7 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   RefreshCw: <RefreshCw className="w-3.5 h-3.5" />,
   Puzzle: <Puzzle className="w-3.5 h-3.5" />,
   Award: <Award className="w-3.5 h-3.5" />,
+  Tags: <Tags className="w-3.5 h-3.5" />,
 }
 
 function SortableTag({ tag, onRemove }: { tag: Tag; onRemove: (id: string) => void }) {
@@ -93,6 +96,9 @@ function SortableTag({ tag, onRemove }: { tag: Tag; onRemove: (id: string) => vo
 export default function TagManager() {
   const { tags, addTag, removeTag, reorderTags } = usePosterStore()
   const [customText, setCustomText] = useState('')
+  const [autoSplitText, setAutoSplitText] = useState('')
+  const [showSplitInput, setShowSplitInput] = useState(false)
+  const [splitPreview, setSplitPreview] = useState<string[]>([])
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -119,6 +125,25 @@ export default function TagManager() {
     })
     setCustomText('')
   }, [customText, addTag])
+
+  const handleAutoSplitPreview = useCallback(() => {
+    const parts = splitRequirementsToTags(autoSplitText)
+    setSplitPreview(parts)
+  }, [autoSplitText])
+
+  const handleApplySplit = useCallback(() => {
+    splitPreview.forEach((text) => {
+      const matchedPreset = PRESET_TAGS.find((pt) => pt.text === text)
+      addTag({
+        id: matchedPreset ? matchedPreset.id : `split-${Date.now()}-${text.length}`,
+        text,
+        icon: matchedPreset ? matchedPreset.icon : 'Tags',
+      })
+    })
+    setAutoSplitText('')
+    setSplitPreview([])
+    setShowSplitInput(false)
+  }, [splitPreview, addTag])
 
   const availablePresets = PRESET_TAGS.filter(
     (pt) => !tags.find((t) => t.id === pt.id)
@@ -149,6 +174,68 @@ export default function TagManager() {
           </DndContext>
         </div>
       )}
+
+      <div className="mb-3">
+        <button
+          onClick={() => setShowSplitInput((o) => !o)}
+          className="flex items-center gap-1.5 text-xs text-accent-gold/80 hover:text-accent-gold transition-colors mb-2"
+        >
+          <Wand2 className="w-3.5 h-3.5" />
+          {showSplitInput ? '收起智能拆标签' : '智能拆标签 · 粘贴一整段自动拆分'}
+        </button>
+
+        {showSplitInput && (
+          <div className="p-3 bg-bg-input/50 border border-border-subtle rounded-lg mb-2 animate-fade-in-up">
+            <div className="flex items-start gap-1.5 mb-2">
+              <Info className="w-3 h-3 text-text-muted mt-0.5 shrink-0" />
+              <div className="text-[10px] text-text-muted leading-relaxed">
+                用中文逗号、顿号、分号、句号或换行分隔每一条要求。例如：<br />
+                <span className="text-text-secondary">能做时间线、不怕长阅读，接受盘凶盘手法；禁迟到鸽子</span>
+              </div>
+            </div>
+            <textarea
+              className="editor-input min-h-[72px] resize-none text-xs"
+              placeholder="在此粘贴或输入你的完整要求列表..."
+              value={autoSplitText}
+              onChange={(e) => setAutoSplitText(e.target.value)}
+            />
+            <div className="flex gap-2 mt-2">
+              <button
+                onClick={handleAutoSplitPreview}
+                disabled={!autoSplitText.trim()}
+                className="px-3 py-1.5 text-xs bg-accent-gold/15 text-accent-gold rounded border border-accent-gold/25 hover:bg-accent-gold/25 transition-all disabled:opacity-40 flex items-center gap-1"
+              >
+                <Wand2 className="w-3 h-3" />
+                预览拆分
+              </button>
+              {splitPreview.length > 0 && (
+                <button
+                  onClick={handleApplySplit}
+                  className="px-3 py-1.5 text-xs bg-green-900/30 text-green-400 rounded border border-green-700/30 hover:bg-green-900/50 transition-all flex items-center gap-1"
+                >
+                  <Plus className="w-3 h-3" />
+                  全部添加（{splitPreview.length}）
+                </button>
+              )}
+            </div>
+            {splitPreview.length > 0 && (
+              <div className="mt-2 p-2 rounded bg-bg-hover/60">
+                <div className="text-[10px] text-text-muted mb-1">拆分结果预览：</div>
+                <div className="flex flex-wrap gap-1">
+                  {splitPreview.map((s, i) => (
+                    <span
+                      key={i}
+                      className="text-[10px] px-2 py-0.5 rounded-full bg-accent-gold/10 text-accent-gold/80 border border-accent-gold/20"
+                    >
+                      {s}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {availablePresets.length > 0 && (
         <div className="mb-3">

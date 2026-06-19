@@ -1,4 +1,5 @@
 import type { Tag } from '@/types'
+import { formatVacancyCount } from '@/lib/utils'
 import { Clock, BookOpen, Crosshair, ShieldAlert, PenLine, Drama, Wifi, RefreshCw, Puzzle, Award, Tags } from 'lucide-react'
 
 const ICON_MAP: Record<string, React.ReactNode> = {
@@ -36,6 +37,7 @@ export default function WantedTemplate({
   tags,
   signupCode,
 }: Props) {
+  const v = formatVacancyCount(vacancyCount)
   return (
     <div
       className="w-[375px] min-h-[667px] parchment-texture text-[#3a2510] relative overflow-hidden"
@@ -85,7 +87,7 @@ export default function WantedTemplate({
             </div>
             <div className="flex items-center gap-2">
               <span className="text-[#8a6a40] font-bold w-12">人数</span>
-              <span className="text-[#8a2020] font-bold text-sm">{vacancyCount || '?'}</span>
+              <span className="text-[#8a2020] font-bold text-sm">{v || '?'}</span>
               <span className="text-[#8a6a40]">人</span>
             </div>
             <div className="flex items-center gap-2">

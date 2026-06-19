@@ -1,55 +1,50 @@
-import { useRef, useState, useCallback } from 'react'
+import { useRef, useState, useMemo, useCallback } from 'react'
 import { usePosterStore } from '@/store/usePosterStore'
 import ArchiveTemplate from '@/components/templates/ArchiveTemplate'
 import WantedTemplate from '@/components/templates/WantedTemplate'
 import TicketTemplate from '@/components/templates/TicketTemplate'
-import { Download, Copy, Check, Image } from 'lucide-react'
+import {
+  Download,
+  Copy,
+  Check,
+  Image,
+  ShieldAlert,
+  CheckCircle2,
+  Circle,
+  ChevronDown,
+  FileText,
+  X,
+} from 'lucide-react'
 import html2canvas from 'html2canvas'
-
-function generateText(
-  scriptName: string,
-  shopLocation: string,
-  date: string,
-  duration: string,
-  vacancyCount: string,
-  feeRange: string,
-  tags: { text: string }[],
-  signupCode: string,
-): string {
-  const lines: string[] = []
-  lines.push('━━━━━━━━━━━━━━━━━━')
-  lines.push('🔍 硬核推理车队招募')
-  lines.push('━━━━━━━━━━━━━━━━━━')
-  lines.push('')
-  if (scriptName) lines.push(`📖 剧本：${scriptName}`)
-  if (shopLocation) lines.push(`📍 地点：${shopLocation}`)
-  if (date) lines.push(`📅 日期：${date}`)
-  if (duration) lines.push(`⏱ 时长：${duration}`)
-  if (vacancyCount) lines.push(`👥 空缺：${vacancyCount}人`)
-  if (feeRange) lines.push(`💰 车费：${feeRange}`)
-  lines.push('')
-  if (tags.length > 0) {
-    lines.push('📋 报名要求：')
-    tags.forEach((tag, i) => {
-      lines.push(`  ${i + 1}. ${tag.text}`)
-    })
-    lines.push('')
-  }
-  if (signupCode) {
-    lines.push('🔑 报名暗号：')
-    lines.push(`  ${signupCode}`)
-    lines.push('')
-  }
-  lines.push('━━━━━━━━━━━━━━━━━━')
-  lines.push('符合条件的玩家速来！')
-  return lines.join('\n')
-}
+import { generateCopy, COPY_TONES, runPrecheck, type CopyTone, type CopyData } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 
 export default function ExportPanel() {
   const store = usePosterStore()
   const [copied, setCopied] = useState(false)
   const [exporting, setExporting] = useState(false)
+  const [showTonePicker, setShowTonePicker] = useState(false)
+  const [selectedTone, setSelectedTone] = useState<CopyTone>('neutral')
+  const [showPrecheck, setShowPrecheck] = useState(false)
+  const [copyPreviewOpen, setCopyPreviewOpen] = useState(false)
   const posterRef = useRef<HTMLDivElement>(null)
+
+  const copyData: CopyData = useMemo(() => ({
+    scriptName: store.scriptName,
+    shopLocation: store.shopLocation,
+    date: store.date,
+    duration: store.duration,
+    vacancyCount: store.vacancyCount,
+    feeRange: store.feeRange,
+    tags: store.tags,
+    signupCode: store.signupCode,
+  }), [store])
+
+  const precheckItems = useMemo(() => runPrecheck(copyData), [copyData])
+  const allFilled = precheckItems.every((p) => p.filled)
+  const filledCount = precheckItems.filter((p) => p.filled).length
+
+  const copyText = useMemo(() => generateCopy(copyData, selectedTone), [copyData, selectedTone])
 
   const handleExportImage = useCallback(async () => {
     if (!posterRef.current || exporting) return
@@ -72,33 +67,74 @@ export default function ExportPanel() {
   }, [exporting, store.scriptName])
 
   const handleCopyText = useCallback(async () => {
-    const text = generateText(
-      store.scriptName,
-      store.shopLocation,
-      store.date,
-      store.duration,
-      store.vacancyCount,
-      store.feeRange,
-      store.tags,
-      store.signupCode,
-    )
     try {
-      await navigator.clipboard.writeText(text)
+      await navigator.clipboard.writeText(copyText)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch {
       console.error('复制失败')
     }
-  }, [store])
+  }, [copyText])
 
   return (
     <div className="editor-section">
       <h3 className="text-base font-serif font-bold text-accent-gold mb-3 flex items-center gap-2">
         <span className="w-1 h-5 bg-accent-gold rounded-full" />
         导出与分享
+        {!allFilled && (
+          <button
+            onClick={() => setShowPrecheck((o) => !o)}
+            className="ml-auto flex items-center gap-1 text-xs text-accent-crimson-light hover:text-accent-crimson transition-colors"
+          >
+            <ShieldAlert className="w-3.5 h-3.5" />
+            {filledCount}/{precheckItems.length}项待完善
+          </button>
+        )}
+        {allFilled && (
+          <span className="ml-auto flex items-center gap-1 text-xs text-green-400">
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            信息完整
+          </span>
+        )}
       </h3>
 
-      <div className="flex gap-3 mb-4">
+      {showPrecheck && (
+        <div className="mb-4 p-3 rounded-lg border border-accent-crimson/25 bg-accent-crimson/10 animate-fade-in-up">
+          <div className="text-xs font-bold text-accent-crimson-light mb-2 flex items-center gap-1.5">
+            <ShieldAlert className="w-3.5 h-3.5" />
+            手机发布预检
+          </div>
+          <div className="space-y-1">
+            {precheckItems.map((p) => (
+              <div key={p.key} className="flex items-center gap-2 text-xs">
+                {p.filled ? (
+                  <CheckCircle2 className="w-3.5 h-3.5 text-green-400 shrink-0" />
+                ) : (
+                  <Circle className="w-3.5 h-3.5 text-text-muted shrink-0" />
+                )}
+                <span className={p.filled ? 'text-text-secondary' : 'text-text-primary'}>
+                  {p.label}
+                </span>
+                <span className={p.filled ? 'text-green-400' : 'text-accent-crimson-light'}>
+                  {p.filled ? '已填写' : '未填写'}
+                </span>
+              </div>
+            ))}
+          </div>
+          {allFilled && (
+            <div className="text-[10px] text-green-400 mt-2">
+              ✅ 所有信息已齐，可以安心发布了！
+            </div>
+          )}
+          {!allFilled && (
+            <div className="text-[10px] text-text-muted mt-2">
+              ⚠️ 空白项会在海报上显示为占位符
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="flex gap-3 mb-3">
         <button
           onClick={handleExportImage}
           disabled={exporting}
@@ -107,13 +143,76 @@ export default function ExportPanel() {
           <Download className="w-4 h-4" />
           {exporting ? '导出中...' : '导出长图'}
         </button>
+        <div className="flex-1 relative">
+          <button
+            onClick={() => setShowTonePicker((o) => !o)}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-bg-input text-text-secondary rounded-lg border border-border-subtle hover:border-accent-gold/40 hover:text-accent-gold-light transition-all"
+          >
+            <FileText className="w-4 h-4" />
+            {COPY_TONES.find((t) => t.key === selectedTone)?.name || '选择文案语气'}
+            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showTonePicker ? 'rotate-180' : ''}`} />
+          </button>
+          {showTonePicker && (
+            <div className="absolute z-50 right-0 left-0 mt-1 bg-bg-card border border-border-subtle rounded-lg shadow-2xl overflow-hidden animate-fade-in-up">
+              {COPY_TONES.map((tone) => (
+                <button
+                  key={tone.key}
+                  onClick={() => {
+                    setSelectedTone(tone.key)
+                    setShowTonePicker(false)
+                  }}
+                  className={cn(
+                    'w-full text-left px-3 py-2.5 border-b border-border-subtle last:border-b-0 transition-colors',
+                    selectedTone === tone.key
+                      ? 'bg-accent-gold/10 text-accent-gold'
+                      : 'hover:bg-bg-hover text-text-primary'
+                  )}
+                >
+                  <div className="text-sm font-bold">{tone.name}</div>
+                  <div className="text-[10px] text-text-muted mt-0.5">{tone.desc}</div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="mb-3">
         <button
-          onClick={handleCopyText}
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-bg-input text-text-secondary rounded-lg border border-border-subtle hover:border-accent-gold/40 hover:text-accent-gold-light transition-all"
+          onClick={() => setCopyPreviewOpen((o) => !o)}
+          className="w-full flex items-center justify-between px-3 py-2 bg-bg-input rounded-lg border border-border-subtle hover:border-text-muted transition-all"
         >
-          {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
-          {copied ? '已复制！' : '复制文字版'}
+          <span className="text-xs text-text-secondary flex items-center gap-1.5">
+            <FileText className="w-3.5 h-3.5" />
+            文字版预览 · {COPY_TONES.find((t) => t.key === selectedTone)?.name}
+          </span>
+          <span className="flex items-center gap-2">
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                handleCopyText()
+              }}
+              className="text-xs flex items-center gap-1 px-2 py-1 rounded bg-accent-gold/15 text-accent-gold border border-accent-gold/25 hover:bg-accent-gold/25 transition-all"
+            >
+              {copied ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
+              {copied ? '已复制' : '复制'}
+            </button>
+            <ChevronDown className={`w-3.5 h-3.5 text-text-muted transition-transform ${copyPreviewOpen ? 'rotate-180' : ''}`} />
+          </span>
         </button>
+        {copyPreviewOpen && (
+          <div className="mt-2 p-3 bg-bg-input rounded-lg border border-border-subtle animate-fade-in-up relative">
+            <pre className="text-[11px] text-text-secondary whitespace-pre-wrap font-mono leading-relaxed max-h-64 overflow-y-auto pr-4">
+              {copyText}
+            </pre>
+            <button
+              onClick={() => setCopyPreviewOpen(false)}
+              className="absolute top-1.5 right-1.5 p-1 text-text-muted hover:text-text-secondary"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="rounded-xl overflow-hidden border border-border-subtle">
