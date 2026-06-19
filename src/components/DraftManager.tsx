@@ -1,6 +1,18 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { usePosterStore } from '@/store/usePosterStore'
-import { Save, FolderOpen, Trash2, Plus, Clock, ChevronDown } from 'lucide-react'
+import {
+  Save,
+  FolderOpen,
+  Trash2,
+  Plus,
+  Clock,
+  ChevronDown,
+  Pencil,
+  Copy,
+  Check,
+  X,
+  Settings,
+} from 'lucide-react'
 
 function formatTime(ts: number) {
   const now = Date.now()
@@ -9,6 +21,133 @@ function formatTime(ts: number) {
   if (diff < 3600000) return Math.floor(diff / 60000) + '分钟前'
   if (diff < 86400000) return Math.floor(diff / 3600000) + '小时前'
   return new Date(ts).toLocaleDateString('zh-CN')
+}
+
+interface DraftRowProps {
+  id: string
+  title: string
+  savedAt: number
+  isActive: boolean
+  onLoad: () => void
+  onRename: (newTitle: string) => void
+  onDuplicate: () => void
+  onDelete: () => void
+}
+
+function DraftRow({
+  id,
+  title,
+  savedAt,
+  isActive,
+  onLoad,
+  onRename,
+  onDuplicate,
+  onDelete,
+}: DraftRowProps) {
+  const [editing, setEditing] = useState(false)
+  const [editTitle, setEditTitle] = useState(title)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus()
+      inputRef.current.select()
+    }
+  }, [editing])
+
+  const handleSave = () => {
+    const trimmed = editTitle.trim()
+    if (trimmed && trimmed !== title) {
+      onRename(trimmed)
+    }
+    setEditing(false)
+  }
+
+  const handleCancel = () => {
+    setEditTitle(title)
+    setEditing(false)
+  }
+
+  return (
+    <div
+      className={`flex items-center gap-2 p-2.5 rounded-lg border transition-all ${
+        isActive
+          ? 'bg-accent-gold/10 border-accent-gold/40'
+          : 'bg-bg-input border-border-subtle hover:border-text-muted'
+      }`}
+    >
+      {editing ? (
+        <input
+          ref={inputRef}
+          className="flex-1 bg-bg-hover border border-accent-gold/30 rounded px-2 py-1 text-sm text-text-primary outline-none"
+          value={editTitle}
+          onChange={(e) => setEditTitle(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') handleSave()
+            if (e.key === 'Escape') handleCancel()
+          }}
+          onBlur={handleSave}
+          onClick={(e) => e.stopPropagation()}
+        />
+      ) : (
+        <button onClick={onLoad} className="flex-1 text-left min-w-0">
+          <div className="text-sm text-text-primary truncate">{title}</div>
+          <div className="text-[10px] text-text-muted flex items-center gap-1 mt-0.5">
+            <Clock className="w-3 h-3" />
+            {formatTime(savedAt)}
+            {isActive && <span className="ml-1 text-accent-gold">· 当前</span>}
+          </div>
+        </button>
+      )}
+      <div className="flex items-center gap-0.5">
+        {editing ? (
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              handleSave()
+            }}
+            className="p-1.5 text-green-400 hover:text-green-300 rounded transition-colors"
+            title="保存"
+          >
+            <Check className="w-3.5 h-3.5" />
+          </button>
+        ) : (
+          <>
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                setEditing(true)
+              }}
+              className="p-1.5 text-text-muted hover:text-accent-gold-light rounded transition-colors"
+              title="改名"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onDuplicate()
+              }}
+              className="p-1.5 text-text-muted hover:text-text-primary rounded transition-colors"
+              title="复制为新草稿"
+            >
+              <Copy className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onDelete()
+              }}
+              className="p-1.5 text-text-muted hover:text-accent-crimson-light rounded transition-colors"
+              title="删除草稿"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  )
 }
 
 export default function DraftManager() {
@@ -29,6 +168,12 @@ export default function DraftManager() {
         草稿箱
         {store.currentDraftId && (
           <span className="text-xs text-accent-gold/60 font-normal ml-1">· 已加载</span>
+        )}
+        {store.autoSaveEnabled && store.currentDraftId && (
+          <span className="text-xs text-green-400/80 font-normal ml-auto flex items-center gap-1">
+            <Save className="w-3 h-3" />
+            自动保存已开启
+          </span>
         )}
       </h3>
 
@@ -58,6 +203,19 @@ export default function DraftManager() {
         </button>
       </div>
 
+      <div className="flex items-center justify-end gap-2 mb-2 px-0.5">
+        <Settings className="w-3 h-3 text-text-muted" />
+        <label className="text-[10px] text-text-muted flex items-center gap-1.5 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            className="accent-accent-gold"
+            checked={store.autoSaveEnabled}
+            onChange={(e) => store.setAutoSaveEnabled(e.target.checked)}
+          />
+          {store.currentDraftId ? '修改后自动保存' : '保存草稿后自动同步'}
+        </label>
+      </div>
+
       {open && (
         <div className="space-y-1.5 animate-fade-in-up">
           {store.drafts.length === 0 && (
@@ -66,32 +224,17 @@ export default function DraftManager() {
             </div>
           )}
           {store.drafts.map((d) => (
-            <div
+            <DraftRow
               key={d.id}
-              className={`flex items-center gap-2 p-2.5 rounded-lg border transition-all ${
-                d.id === store.currentDraftId
-                  ? 'bg-accent-gold/10 border-accent-gold/40'
-                  : 'bg-bg-input border-border-subtle hover:border-text-muted'
-              }`}
-            >
-              <button
-                onClick={() => store.loadDraft(d.id)}
-                className="flex-1 text-left min-w-0"
-              >
-                <div className="text-sm text-text-primary truncate">{d.title}</div>
-                <div className="text-[10px] text-text-muted flex items-center gap-1 mt-0.5">
-                  <Clock className="w-3 h-3" />
-                  {formatTime(d.savedAt)}
-                </div>
-              </button>
-              <button
-                onClick={() => store.deleteDraft(d.id)}
-                className="p-1.5 text-text-muted hover:text-accent-crimson-light rounded transition-colors"
-                title="删除草稿"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            </div>
+              id={d.id}
+              title={d.title}
+              savedAt={d.savedAt}
+              isActive={d.id === store.currentDraftId}
+              onLoad={() => store.loadDraft(d.id)}
+              onRename={(newTitle) => store.renameDraft(d.id, newTitle)}
+              onDuplicate={() => store.duplicateDraft(d.id)}
+              onDelete={() => store.deleteDraft(d.id)}
+            />
           ))}
         </div>
       )}

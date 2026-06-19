@@ -1,4 +1,4 @@
-import { useRef, useState, useMemo, useCallback } from 'react'
+import { useRef, useState, useMemo, useCallback, useEffect } from 'react'
 import { usePosterStore } from '@/store/usePosterStore'
 import ArchiveTemplate from '@/components/templates/ArchiveTemplate'
 import WantedTemplate from '@/components/templates/WantedTemplate'
@@ -14,10 +14,92 @@ import {
   ChevronDown,
   FileText,
   X,
+  ArrowLeft,
 } from 'lucide-react'
 import html2canvas from 'html2canvas'
-import { generateCopy, COPY_TONES, runPrecheck, type CopyTone, type CopyData } from '@/lib/utils'
+import {
+  generateCopy,
+  COPY_TONES,
+  COPY_CHANNELS,
+  runPrecheck,
+  type CopyTone,
+  type CopyChannel,
+  type CopyData,
+} from '@/lib/utils'
 import { cn } from '@/lib/utils'
+
+function PrecheckModal({
+  items,
+  onCancel,
+  onConfirm,
+}: {
+  items: { key: string; label: string; filled: boolean }[]
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  const missing = items.filter((i) => !i.filled)
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onCancel()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [onCancel])
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm animate-fade-in-up">
+      <div className="bg-bg-card border border-border-subtle rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-12 h-12 rounded-full bg-accent-crimson/20 border border-accent-crimson/30 flex items-center justify-center">
+            <ShieldAlert className="w-6 h-6 text-accent-crimson-light" />
+          </div>
+          <div className="flex-1">
+            <h3 className="text-lg font-serif font-bold text-text-primary">
+              发布前预检
+            </h3>
+            <p className="text-xs text-text-muted">
+              还差 {missing.length} 项未填写，导出可能会显示占位符
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-1.5 mb-5 p-3 bg-bg-input rounded-lg border border-border-subtle">
+          {items.map((p) => (
+            <div key={p.key} className="flex items-center gap-2 text-sm">
+              {p.filled ? (
+                <CheckCircle2 className="w-4 h-4 text-green-400 shrink-0" />
+              ) : (
+                  <Circle className="w-4 h-4 text-accent-crimson-light shrink-0" />
+              )}
+              <span className="flex-1">{p.label}</span>
+              <span className={p.filled ? 'text-green-400' : 'text-accent-crimson-light'}>
+                {p.filled ? '✓' : '未填'}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex gap-2">
+          <button
+            onClick={onCancel}
+            className="flex-1 flex items-center justify-center gap-1.5 px-4 py-3 bg-bg-input text-text-secondary rounded-lg border border-border-subtle hover:border-text-muted hover:text-text-primary transition-all text-sm"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            返回补全
+          </button>
+          <button
+            onClick={onConfirm}
+            className="flex-1 flex items-center justify-center gap-1.5 px-4 py-3 bg-accent-gold/20 text-accent-gold rounded-lg border border-accent-gold/30 hover:bg-accent-gold/30 transition-all text-sm"
+          >
+            <Download className="w-4 h-4" />
+            仍然导出
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default function ExportPanel() {
   const store = usePosterStore()
@@ -25,8 +107,11 @@ export default function ExportPanel() {
   const [exporting, setExporting] = useState(false)
   const [showTonePicker, setShowTonePicker] = useState(false)
   const [selectedTone, setSelectedTone] = useState<CopyTone>('neutral')
+  const [selectedChannel, setSelectedChannel] = useState<CopyChannel>('group')
   const [showPrecheck, setShowPrecheck] = useState(false)
-  const [copyPreviewOpen, setCopyPreviewOpen] = useState(false)
+  const [showChannelPicker, setShowChannelPicker] = useState(false)
+  const [copyPreviewOpen, setCopyPreviewOpen] = useState(true)
+  const [pendingExport, setPendingExport] = useState(false)
   const posterRef = useRef<HTMLDivElement>(null)
 
   const copyData: CopyData = useMemo(() => ({
@@ -44,11 +129,15 @@ export default function ExportPanel() {
   const allFilled = precheckItems.every((p) => p.filled)
   const filledCount = precheckItems.filter((p) => p.filled).length
 
-  const copyText = useMemo(() => generateCopy(copyData, selectedTone), [copyData, selectedTone])
+  const copyText = useMemo(
+    () => generateCopy(copyData, selectedTone, selectedChannel),
+    [copyData, selectedTone, selectedChannel]
+  )
 
-  const handleExportImage = useCallback(async () => {
+  const doExport = useCallback(async () => {
     if (!posterRef.current || exporting) return
     setExporting(true)
+    setShowPrecheck(false)
     try {
       const canvas = await html2canvas(posterRef.current, {
         scale: 2,
@@ -65,6 +154,15 @@ export default function ExportPanel() {
       setExporting(false)
     }
   }, [exporting, store.scriptName])
+
+  const handleExportImage = useCallback(() => {
+    if (allFilled) {
+      doExport()
+    } else {
+      setPendingExport(true)
+      setShowPrecheck(true)
+    }
+  }, [allFilled, doExport])
 
   const handleCopyText = useCallback(async () => {
     try {
@@ -135,21 +233,23 @@ export default function ExportPanel() {
       )}
 
       <div className="flex gap-3 mb-3">
-        <button
-          onClick={handleExportImage}
-          disabled={exporting}
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-accent-gold/20 text-accent-gold rounded-lg border border-accent-gold/30 hover:bg-accent-gold/30 transition-all disabled:opacity-50"
-        >
-          <Download className="w-4 h-4" />
-          {exporting ? '导出中...' : '导出长图'}
-        </button>
+        <div className="flex-1 relative">
+          <button
+            onClick={handleExportImage}
+            disabled={exporting}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-accent-gold/20 text-accent-gold rounded-lg border border-accent-gold/30 hover:bg-accent-gold/30 transition-all disabled:opacity-50"
+          >
+            <Download className="w-4 h-4" />
+            {exporting ? '导出中...' : '导出长图'}
+          </button>
+        </div>
         <div className="flex-1 relative">
           <button
             onClick={() => setShowTonePicker((o) => !o)}
             className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-bg-input text-text-secondary rounded-lg border border-border-subtle hover:border-accent-gold/40 hover:text-accent-gold-light transition-all"
           >
             <FileText className="w-4 h-4" />
-            {COPY_TONES.find((t) => t.key === selectedTone)?.name || '选择文案语气'}
+            {COPY_TONES.find((t) => t.key === selectedTone)?.name || '选择语气'}
             <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showTonePicker ? 'rotate-180' : ''}`} />
           </button>
           {showTonePicker && (
@@ -177,6 +277,24 @@ export default function ExportPanel() {
         </div>
       </div>
 
+      <div className="flex gap-2 mb-3">
+        {COPY_CHANNELS.map((ch) => (
+          <button
+            key={ch.key}
+            onClick={() => setSelectedChannel(ch.key)}
+            className={cn(
+              'flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-lg border text-xs transition-all',
+              selectedChannel === ch.key
+                ? 'bg-accent-gold/15 text-accent-gold border-accent-gold/40'
+                : 'bg-bg-input text-text-secondary border-border-subtle hover:border-text-muted'
+            )}
+          >
+            <span>{ch.icon}</span>
+            {ch.name}
+          </button>
+        ))}
+      </div>
+
       <div className="mb-3">
         <button
           onClick={() => setCopyPreviewOpen((o) => !o)}
@@ -184,7 +302,7 @@ export default function ExportPanel() {
         >
           <span className="text-xs text-text-secondary flex items-center gap-1.5">
             <FileText className="w-3.5 h-3.5" />
-            文字版预览 · {COPY_TONES.find((t) => t.key === selectedTone)?.name}
+            文字版预览 · {COPY_TONES.find((t) => t.key === selectedTone)?.name} · {COPY_CHANNELS.find((c) => c.key === selectedChannel)?.name}
           </span>
           <span className="flex items-center gap-2">
             <button
@@ -261,6 +379,20 @@ export default function ExportPanel() {
           </div>
         </div>
       </div>
+
+      {pendingExport && showPrecheck && (
+        <PrecheckModal
+          items={precheckItems}
+          onCancel={() => {
+            setShowPrecheck(false)
+            setPendingExport(false)
+          }}
+          onConfirm={() => {
+            doExport()
+            setPendingExport(false)
+          }}
+        />
+      )}
     </div>
   )
 }

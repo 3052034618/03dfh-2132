@@ -1,5 +1,5 @@
 import type { Tag } from '@/types'
-import { formatVacancyCount } from '@/lib/utils'
+import { formatVacancyNumOnly } from '@/lib/utils'
 import { Clock, BookOpen, Crosshair, ShieldAlert, PenLine, Drama, Wifi, RefreshCw, Puzzle, Award, Tags } from 'lucide-react'
 
 const ICON_MAP: Record<string, React.ReactNode> = {
@@ -37,7 +37,7 @@ export default function TicketTemplate({
   tags,
   signupCode,
 }: Props) {
-  const v = formatVacancyCount(vacancyCount)
+  const v = formatVacancyNumOnly(vacancyCount)
   return (
     <div
       className="w-[375px] min-h-[667px] bg-[#1a1610] relative overflow-hidden"

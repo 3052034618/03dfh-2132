@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { usePosterStore } from '@/store/usePosterStore'
 import { PRESET_TAGS } from '@/types'
 import type { Tag } from '@/types'
@@ -37,6 +37,8 @@ import {
   Tags,
   Wand2,
   Info,
+  Pencil,
+  Check,
 } from 'lucide-react'
 import { cn, splitRequirementsToTags } from '@/lib/utils'
 
@@ -54,7 +56,19 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   Tags: <Tags className="w-3.5 h-3.5" />,
 }
 
-function SortableTag({ tag, onRemove }: { tag: Tag; onRemove: (id: string) => void }) {
+function SortableTag({
+  tag,
+  onRemove,
+  onEdit,
+}: {
+  tag: Tag
+  onRemove: (id: string) => void
+  onEdit: (id: string, text: string) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [editText, setEditText] = useState(tag.text)
+  const inputRef = useRef<HTMLInputElement>(null)
+
   const {
     attributes,
     listeners,
@@ -69,6 +83,26 @@ function SortableTag({ tag, onRemove }: { tag: Tag; onRemove: (id: string) => vo
     transition,
   }
 
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus()
+      inputRef.current.select()
+    }
+  }, [editing])
+
+  const handleSave = useCallback(() => {
+    const trimmed = editText.trim()
+    if (trimmed && trimmed !== tag.text) {
+      onEdit(tag.id, trimmed)
+    }
+    setEditing(false)
+  }, [editText, tag.id, tag.text, onEdit])
+
+  const handleCancel = useCallback(() => {
+    setEditText(tag.text)
+    setEditing(false)
+  }, [tag.text])
+
   return (
     <div
       ref={setNodeRef}
@@ -78,23 +112,82 @@ function SortableTag({ tag, onRemove }: { tag: Tag; onRemove: (id: string) => vo
         isDragging && 'drag-overlay'
       )}
     >
-      <span {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing text-accent-gold/50">
-        <GripVertical className="w-3.5 h-3.5" />
-      </span>
+      {!editing && (
+        <span
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing text-accent-gold/50"
+        >
+          <GripVertical className="w-3.5 h-3.5" />
+        </span>
+      )}
       {ICON_MAP[tag.icon]}
-      <span>{tag.text}</span>
-      <button
-        onClick={() => onRemove(tag.id)}
-        className="ml-0.5 text-accent-gold/40 hover:text-accent-crimson-light transition-colors"
-      >
-        <X className="w-3.5 h-3.5" />
-      </button>
+      {editing ? (
+        <input
+          ref={inputRef}
+          className="bg-transparent outline-none text-sm w-auto min-w-[80px] border-b border-accent-gold px-1 py-0"
+          value={editText}
+          onChange={(e) => setEditText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') handleSave()
+            if (e.key === 'Escape') handleCancel()
+          }}
+          onBlur={handleSave}
+          onClick={(e) => e.stopPropagation()}
+        />
+      ) : (
+        <span
+          onClick={(e) => {
+            e.stopPropagation()
+            setEditing(true)
+          }}
+          className="cursor-pointer hover:text-white"
+          title="点击编辑标签"
+        >
+          {tag.text}
+        </span>
+      )}
+      {editing ? (
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            handleSave()
+          }}
+          className="ml-0.5 text-green-400 hover:text-green-300 transition-colors"
+          title="保存"
+        >
+          <Check className="w-3.5 h-3.5" />
+        </button>
+      ) : (
+        <>
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              setEditing(true)
+            }}
+            className="ml-0.5 text-accent-gold/40 hover:text-accent-gold-light transition-colors"
+            title="编辑标签"
+          >
+            <Pencil className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              onRemove(tag.id)
+            }}
+            className="text-accent-gold/40 hover:text-accent-crimson-light transition-colors"
+            title="删除标签"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </>
+      )}
     </div>
   )
 }
 
 export default function TagManager() {
-  const { tags, addTag, removeTag, reorderTags } = usePosterStore()
+  const { tags, addTag, removeTag, editTag, reorderTags } = usePosterStore()
   const [customText, setCustomText] = useState('')
   const [autoSplitText, setAutoSplitText] = useState('')
   const [showSplitInput, setShowSplitInput] = useState(false)
@@ -134,16 +227,26 @@ export default function TagManager() {
   const handleApplySplit = useCallback(() => {
     splitPreview.forEach((text) => {
       const matchedPreset = PRESET_TAGS.find((pt) => pt.text === text)
-      addTag({
-        id: matchedPreset ? matchedPreset.id : `split-${Date.now()}-${text.length}`,
+      const tag: Tag = {
+        id: matchedPreset
+          ? matchedPreset.id
+          : `split-${Date.now()}-${text.slice(0, 5)}-${Math.floor(Math.random() * 1000)}`,
         text,
         icon: matchedPreset ? matchedPreset.icon : 'Tags',
-      })
+      }
+      if (!tags.find((t) => t.id === tag.id)) {
+        addTag(tag)
+      } else if (!tags.find((t) => t.text === text)) {
+        addTag({
+          ...tag,
+          id: `split-${Date.now()}-${text.slice(0, 5)}-${Math.floor(Math.random() * 1000)}`,
+        })
+      }
     })
     setAutoSplitText('')
     setSplitPreview([])
     setShowSplitInput(false)
-  }, [splitPreview, addTag])
+  }, [splitPreview, addTag, tags])
 
   const availablePresets = PRESET_TAGS.filter(
     (pt) => !tags.find((t) => t.id === pt.id)
@@ -154,7 +257,7 @@ export default function TagManager() {
       <h3 className="text-base font-serif font-bold text-accent-gold mb-3 flex items-center gap-2">
         <span className="w-1 h-5 bg-accent-gold rounded-full" />
         报名要求标签
-        <span className="text-xs text-text-muted font-normal ml-1">拖拽排序 · 重要的放上面</span>
+        <span className="text-xs text-text-muted font-normal ml-1">拖拽排序 · 点击文字可直接编辑</span>
       </h3>
 
       {tags.length > 0 && (
@@ -167,7 +270,12 @@ export default function TagManager() {
             <SortableContext items={tags.map((t) => t.id)} strategy={verticalListSortingStrategy}>
               <div className="flex flex-wrap gap-2">
                 {tags.map((tag) => (
-                  <SortableTag key={tag.id} tag={tag} onRemove={removeTag} />
+                  <SortableTag
+                    key={tag.id}
+                    tag={tag}
+                    onRemove={removeTag}
+                    onEdit={editTag}
+                  />
                 ))}
               </div>
             </SortableContext>
@@ -189,8 +297,7 @@ export default function TagManager() {
             <div className="flex items-start gap-1.5 mb-2">
               <Info className="w-3 h-3 text-text-muted mt-0.5 shrink-0" />
               <div className="text-[10px] text-text-muted leading-relaxed">
-                用中文逗号、顿号、分号、句号或换行分隔每一条要求。例如：<br />
-                <span className="text-text-secondary">能做时间线、不怕长阅读，接受盘凶盘手法；禁迟到鸽子</span>
+                用中文逗号、顿号、分号、句号或换行分隔每一条要求。支持相似内容同时保留。
               </div>
             </div>
             <textarea
@@ -220,7 +327,7 @@ export default function TagManager() {
             </div>
             {splitPreview.length > 0 && (
               <div className="mt-2 p-2 rounded bg-bg-hover/60">
-                <div className="text-[10px] text-text-muted mb-1">拆分结果预览：</div>
+                <div className="text-[10px] text-text-muted mb-1">拆分结果预览（同长度要求都保留）：</div>
                 <div className="flex flex-wrap gap-1">
                   {splitPreview.map((s, i) => (
                     <span
