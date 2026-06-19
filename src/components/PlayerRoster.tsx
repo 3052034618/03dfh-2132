@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useRef } from 'react'
+import { useMemo, useState, useEffect, useRef, useCallback } from 'react'
 import { usePosterStore } from '@/store/usePosterStore'
 import {
   Users,
@@ -13,9 +13,20 @@ import {
   Check,
   UserCheck,
   Phone,
+  Copy,
+  ListFilter,
 } from 'lucide-react'
 import { cn, formatVacancyNumOnly, parseVacancy } from '@/lib/utils'
 import type { Player } from '@/types'
+
+type RosterFilter = 'all' | 'confirmed' | 'paid' | 'unconfirmed'
+
+const FILTER_TABS: { key: RosterFilter; label: string }[] = [
+  { key: 'all', label: '全部' },
+  { key: 'confirmed', label: '已确认' },
+  { key: 'paid', label: '已付款' },
+  { key: 'unconfirmed', label: '未确认' },
+]
 
 interface PlayerRowProps {
   player: Player
@@ -213,7 +224,9 @@ function PlayerRow({ player, onUpdate, onRemove }: PlayerRowProps) {
 }
 
 export default function PlayerRoster() {
-  const { players, addPlayer, removePlayer, updatePlayer, vacancyCount } = usePosterStore()
+  const { players, addPlayer, removePlayer, updatePlayer, vacancyCount, scriptName } = usePosterStore()
+  const [filter, setFilter] = useState<RosterFilter>('all')
+  const [copied, setCopied] = useState(false)
 
   const vacancy = useMemo(() => {
     const num = parseVacancy(vacancyCount).num
@@ -225,6 +238,72 @@ export default function PlayerRoster() {
   const remaining = vacancy !== null ? Math.max(vacancy - players.length, 0) : null
   const overbooked = vacancy !== null ? players.length > vacancy : false
 
+  const filteredPlayers = useMemo(() => {
+    switch (filter) {
+      case 'confirmed':
+        return players.filter((p) => p.confirmed)
+      case 'paid':
+        return players.filter((p) => p.paid)
+      case 'unconfirmed':
+        return players.filter((p) => !p.confirmed)
+      default:
+        return players
+    }
+  }, [players, filter])
+
+  const buildRosterText = useCallback(() => {
+    const title = scriptName ? `【${scriptName}】` : '【成车点名】'
+    const lines: string[] = [title]
+
+    const confirmedList = players.filter((p) => p.confirmed)
+    const unconfirmedList = players.filter((p) => !p.confirmed)
+    const paidList = players.filter((p) => p.paid)
+
+    if (vacancy !== null) {
+      lines.push(`目标 ${vacancy} 人，已登记 ${players.length} 人，已确认 ${confirmed} 人，已付款 ${paid} 人，剩余空位 ${remaining} 人`)
+    } else {
+      lines.push(`已登记 ${players.length} 人，已确认 ${confirmed} 人，已付款 ${paid} 人`)
+    }
+    lines.push('')
+
+    if (confirmedList.length > 0) {
+      lines.push(`✅ 已确认（${confirmedList.length} 人）：`)
+      confirmedList.forEach((p, i) => {
+        const tag = p.paid ? ' [已付款]' : ''
+        const contact = p.contact ? `（${p.contact}）` : ''
+        const note = p.note ? ` — ${p.note}` : ''
+        lines.push(`${i + 1}. ${p.nickname || '未命名玩家'}${tag}${contact}${note}`)
+      })
+      lines.push('')
+    }
+
+    if (unconfirmedList.length > 0) {
+      lines.push(`⏳ 待确认（${unconfirmedList.length} 人）：`)
+      unconfirmedList.forEach((p, i) => {
+        const contact = p.contact ? `（${p.contact}）` : ''
+        const note = p.note ? ` — ${p.note}` : ''
+        lines.push(`${i + 1}. ${p.nickname || '未命名玩家'}${contact}${note}`)
+      })
+      lines.push('')
+    }
+
+    if (paidList.length > 0) {
+      lines.push(`💰 已付款（${paidList.length} 人）：${paidList.map((p) => p.nickname || '未命名玩家').join('、')}`)
+    }
+
+    return lines.join('\n')
+  }, [players, scriptName, vacancy, confirmed, paid, remaining])
+
+  const handleCopyRoster = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(buildRosterText())
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      console.error('复制失败')
+    }
+  }, [buildRosterText])
+
   return (
     <div className="editor-section">
       <h3 className="text-base font-serif font-bold text-accent-gold mb-3 flex items-center gap-2">
@@ -233,6 +312,22 @@ export default function PlayerRoster() {
         <span className="text-xs text-text-muted font-normal ml-1">
           已登记 {players.length}{vacancy !== null && ` / 目标 ${vacancy}`}
         </span>
+        <button
+          onClick={handleCopyRoster}
+          disabled={players.length === 0}
+          className={cn(
+            'ml-auto flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] border transition-all',
+            players.length === 0
+              ? 'bg-bg-input text-text-muted border-border-subtle cursor-not-allowed opacity-50'
+              : copied
+              ? 'bg-green-900/20 text-green-400 border-green-700/40'
+              : 'bg-accent-gold/10 text-accent-gold border-accent-gold/25 hover:bg-accent-gold/20'
+          )}
+          title="复制群内点名用名单"
+        >
+          {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+          {copied ? '已复制' : '复制名单'}
+        </button>
       </h3>
 
       <div className="grid grid-cols-3 gap-2 mb-3">
@@ -294,8 +389,39 @@ export default function PlayerRoster() {
       )}
 
       {players.length > 0 && (
+        <div className="mb-3 flex items-center gap-1 flex-wrap">
+          <ListFilter className="w-3 h-3 text-text-muted" />
+          {FILTER_TABS.map((tab) => {
+            const count = (() => {
+              switch (tab.key) {
+                case 'all': return players.length
+                case 'confirmed': return confirmed
+                case 'paid': return paid
+                case 'unconfirmed': return players.length - confirmed
+              }
+            })()
+            return (
+              <button
+                key={tab.key}
+                onClick={() => setFilter(tab.key)}
+                className={cn(
+                  'px-2 py-0.5 rounded-md text-[10px] border transition-all',
+                  filter === tab.key
+                    ? 'bg-accent-gold/15 text-accent-gold border-accent-gold/40'
+                    : 'bg-bg-input text-text-muted border-border-subtle hover:text-text-secondary hover:border-text-muted'
+                )}
+              >
+                {tab.label}
+                <span className="ml-1 text-[9px] opacity-70">{count}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {filteredPlayers.length > 0 && (
         <div className="space-y-1.5 mb-3">
-          {players.map((p) => (
+          {filteredPlayers.map((p) => (
             <PlayerRow
               key={p.id}
               player={p}
@@ -303,6 +429,12 @@ export default function PlayerRoster() {
               onRemove={() => removePlayer(p.id)}
             />
           ))}
+        </div>
+      )}
+
+      {players.length > 0 && filteredPlayers.length === 0 && (
+        <div className="mb-3 p-3 text-center rounded-lg bg-bg-input/40 border border-dashed border-border-subtle">
+          <div className="text-[11px] text-text-muted">当前筛选下没有玩家</div>
         </div>
       )}
 

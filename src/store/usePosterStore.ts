@@ -7,6 +7,7 @@ interface DraftMeta {
   id: string
   title: string
   savedAt: number
+  renamed?: boolean
 }
 
 interface PosterStore extends PosterData {
@@ -341,7 +342,21 @@ export const usePosterStore = create<PosterStore>((set, get) => {
       }
 
       let id = state.currentDraftId
-      const draftTitle = title || state.scriptName || `草稿 ${new Date().toLocaleDateString('zh-CN')}`
+      const existing = id ? state.drafts.find((d) => d.id === id) : undefined
+
+      let draftTitle: string
+      let renamedFlag: boolean | undefined
+
+      if (title) {
+        draftTitle = title
+        renamedFlag = true
+      } else if (existing && existing.renamed) {
+        draftTitle = existing.title
+        renamedFlag = true
+      } else {
+        draftTitle = state.scriptName || `草稿 ${new Date().toLocaleDateString('zh-CN')}`
+        renamedFlag = undefined
+      }
 
       if (!id) {
         id = `d${Date.now()}`
@@ -350,7 +365,9 @@ export const usePosterStore = create<PosterStore>((set, get) => {
       saveDraftData(id, data)
 
       const meta: DraftMeta[] = state.drafts.filter((d) => d.id !== id)
-      meta.unshift({ id, title: draftTitle, savedAt: Date.now() })
+      const newMeta: DraftMeta = { id, title: draftTitle, savedAt: Date.now() }
+      if (renamedFlag) newMeta.renamed = true
+      meta.unshift(newMeta)
       const trimmed = meta.slice(0, MAX_DRAFTS)
       saveDraftsMeta(trimmed)
 
@@ -360,7 +377,9 @@ export const usePosterStore = create<PosterStore>((set, get) => {
 
     renameDraft: (id, title) => {
       const state = get()
-      const meta = state.drafts.map((d) => d.id === id ? { ...d, title, savedAt: Date.now() } : d)
+      const meta = state.drafts.map((d) =>
+        d.id === id ? { ...d, title, savedAt: Date.now(), renamed: true } : d
+      )
       saveDraftsMeta(meta)
       set({ drafts: meta })
     },
@@ -373,7 +392,10 @@ export const usePosterStore = create<PosterStore>((set, get) => {
       const newId = `d${Date.now()}`
       const newTitle = sourceMeta ? sourceMeta.title + ' 副本' : '草稿副本'
       saveDraftData(newId, data)
-      const meta: DraftMeta[] = [{ id: newId, title: newTitle, savedAt: Date.now() }, ...state.drafts]
+      const meta: DraftMeta[] = [
+        { id: newId, title: newTitle, savedAt: Date.now(), renamed: true },
+        ...state.drafts,
+      ]
       const trimmed = meta.slice(0, MAX_DRAFTS)
       saveDraftsMeta(trimmed)
       set({ drafts: trimmed })
